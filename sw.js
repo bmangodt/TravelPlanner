@@ -1,8 +1,10 @@
 // Reisplanner service worker: app offline + kaarttegels cachen
-const V = 'reisplanner-app-v1';
+const V = 'reisplanner-app-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './apple-touch-icon.png', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(V).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(V)
+    .then(c => Promise.all(SHELL.map(u => fetch(u, { cache: 'reload' }).then(r => { if (r.ok) return c.put(u, r); }))))
+    .then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== V && k !== 'tiles').map(k => caches.delete(k)))).then(() => self.clients.claim()));
@@ -22,12 +24,14 @@ self.addEventListener('fetch', e => {
     }));
     return;
   }
-  if (u.origin === location.origin) {
-    // eerst uit cache (snel, offline), op de achtergrond bijwerken
-    e.respondWith(caches.open(V).then(async c => {
-      const hit = await c.match(req, { ignoreSearch: true }) || (req.mode === 'navigate' ? await c.match('./index.html') : null);
-      const net = fetch(req).then(r => { if (r.ok) c.put(req, r.clone()); return r; }).catch(() => null);
-      return hit || (await net) || new Response('Offline', { status: 503 });
-    }));
-  }
+  if (u.origin !== location.origin) return;
+  const isPage = req.mode === 'navigate' || req.destination === 'document';
+  e.respondWith(caches.open(V).then(async c => {
+    // pagina: altijd de bewaarde app tonen (werkt in vliegtuigmodus), op de achtergrond bijwerken
+    const key = isPage ? './index.html' : req;
+    const hit = await c.match(key, { ignoreSearch: true, ignoreVary: true }) || (isPage ? await c.match('./', { ignoreSearch: true }) : null);
+    const net = fetch(req).then(r => { if (r.ok && !r.redirected) c.put(isPage ? './index.html' : req, r.clone()); return r; }).catch(() => null);
+    if (hit) { e.waitUntil(net); return hit; }
+    return (await net) || new Response('<h1>Offline</h1><p>Open de app één keer met internet.</p>', { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+  }));
 });
