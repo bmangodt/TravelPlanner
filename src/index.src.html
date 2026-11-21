@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Reisplanner">
-<meta name="theme-color" content="#0b4f6c">
+<meta name="theme-color" content="#6C8E4E">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Reisplanner</title>
@@ -17,13 +17,13 @@
 VOICE: rustig, praktisch, een reisgenoot die je onderweg met één hand gebruikt
 IDEA: een reisdagboek / boarding pass: per dag een kaart met grote tijden
 PICTURE: de kaart met alle genummerde plaatsen en dagroutes is het hoofdbeeld
-COLOUR and TYPE: wit + diepzee-blauw #0b4f6c, zand #f3ece2, koraal #e8553a als accent; systeemletter (werkt offline)
+COLOUR and TYPE: crème #F9F2EA, groen #6C8E4E, roze #E07A9A, zachtroze #F6D2DE en lichtgroen #CDE7B0; systeemletter (werkt offline)
 LAYOUT: iOS-achtig: bovenbalk, inhoud, tabbalk onderaan met safe-area
 */
 :root{color-scheme:light dark;
---bg:light-dark(#ffffff,#0e1418);--bg2:light-dark(#f3ece2,#172127);--card:light-dark(#ffffff,#1b262d);
---ink:light-dark(#10202a,#eef3f5);--mute:light-dark(#5b6b74,#9fb0b8);--line:light-dark(#e3ddd3,#2a3840);
---sea:light-dark(#0b4f6c,#5fb3d6);--seaInk:#ffffff;--coral:#e8553a;--ok:#2f8f5b}
+--bg:light-dark(#F9F2EA,#1b1d18);--bg2:light-dark(#F6D2DE,#3a2830);--soft:light-dark(#CDE7B0,#33402a);--card:light-dark(#ffffff,#24271f);
+--ink:light-dark(#2b3324,#f3efe8);--mute:light-dark(#66705c,#b5b9ab);--line:light-dark(#ecdfd2,#3a3d33);
+--sea:light-dark(#6C8E4E,#9fbf7f);--seaInk:light-dark(#ffffff,#1b1d18);--coral:#E07A9A;--ok:#6C8E4E}
 :root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
 *{box-sizing:border-box;min-width:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
@@ -38,15 +38,16 @@ main{padding-bottom:calc(84px + env(safe-area-inset-bottom))}
 .pad{padding:16px max(16px,env(safe-area-inset-left))}
 .tabs{position:fixed;left:0;right:0;bottom:0;z-index:600;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
 .tabs button{border:0;background:none;padding:8px 0 6px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;color:var(--mute);min-height:56px;cursor:pointer}
-.tabs button.on{color:var(--sea)}
+.tabs button.on{color:var(--coral)}
 svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
 #homeMap{height:min(58vh,560px);background:var(--bg2)}
 #dayMap{height:220px;border-radius:14px;margin-top:12px;background:var(--bg2)}
 .chips{display:flex;gap:8px;overflow-x:auto;padding:12px 16px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
 .chip{flex:none;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:8px 14px;font-size:14px;min-height:40px;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
-.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip.on{background:var(--sea);color:var(--seaInk);border-color:var(--sea)}
 .chip i{width:10px;height:10px;border-radius:50%;background:var(--c);display:inline-block}
+.chip.on i{box-shadow:0 0 0 2px #fff}
 .sec{font-size:13px;color:var(--mute);margin:22px 0 8px;font-weight:600}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:10px}
 .row{display:flex;gap:12px;align-items:flex-start}
@@ -59,14 +60,14 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 .meta{font-size:14px;color:var(--mute);margin-top:2px;overflow-wrap:anywhere}
 .night{display:flex;gap:10px;align-items:center;background:var(--bg2);border-radius:14px;padding:12px;margin:8px 0;cursor:pointer;border:0;width:100%;text-align:left}
 .btn{border:0;border-radius:12px;padding:12px 16px;min-height:46px;background:var(--sea);color:var(--seaInk);font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px}
-.btn.ghost{background:var(--bg2);color:var(--ink)}
+.btn.ghost{background:var(--soft);color:var(--ink)}
 .btn.danger{background:color-mix(in srgb,var(--coral) 14%,transparent);color:var(--coral)}
 .btn.sm{min-height:38px;padding:8px 12px;font-size:14px}
 .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .grow{flex:1}
 .empty{text-align:center;color:var(--mute);padding:28px 12px;border:1.5px dashed var(--line);border-radius:16px}
 .stat{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px}
-.stat div{background:var(--bg2);border-radius:14px;padding:10px 12px}
+.stat div{background:var(--soft);border-radius:14px;padding:10px 12px}
 .stat b{display:block;font-size:24px;font-variant-numeric:tabular-nums}
 .stat span{font-size:13px;color:var(--mute)}
 label{display:block;font-size:13px;font-weight:600;color:var(--mute);margin:12px 0 4px}
@@ -81,7 +82,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 @media (prefers-reduced-motion:reduce){.panel{animation:none}}
 .phead{position:sticky;top:-8px;background:var(--bg);display:flex;align-items:center;gap:8px;padding:10px 0;z-index:2;border-bottom:1px solid var(--line);margin-bottom:6px}
 .phead h2{font-size:20px;flex:1}
-.x{border:0;background:var(--bg2);width:38px;height:38px;border-radius:50%;cursor:pointer;font-size:20px;line-height:1}
+.x{border:0;background:var(--soft);width:38px;height:38px;border-radius:50%;cursor:pointer;font-size:20px;line-height:1}
 .results button{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:none;padding:10px 4px;cursor:pointer;font-size:15px}
 .loc{background:var(--bg2);border-radius:12px;padding:10px 12px;margin-top:8px;font-size:14px}
 #pickMap{height:260px;border-radius:12px;margin-top:8px}
@@ -92,7 +93,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .pin.h span{border-radius:8px}
 .leaflet-popup-content{margin:12px 14px;font:14px/1.4 -apple-system,system-ui,sans-serif}
 .leaflet-popup-content b{font-size:15px}
-.pop button{margin-top:8px;border:0;background:#0b4f6c;color:#fff;border-radius:8px;padding:7px 12px;font-weight:600;cursor:pointer}
+.pop button{margin-top:8px;border:0;background:#6C8E4E;color:#fff;border-radius:8px;padding:7px 12px;font-weight:600;cursor:pointer}
 .bar{height:8px;background:var(--bg2);border-radius:99px;overflow:hidden;margin-top:10px}
 .bar i{display:block;height:100%;width:0;background:var(--sea);transition:width .2s}
 .note{font-size:14px;color:var(--mute)}
@@ -112,7 +113,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
   .p-cover .d{font-size:12pt;color:#444}
   .p-map{margin:12pt 0;border:1px solid #ccc;border-radius:6pt}
   .p-map svg{width:100%;height:auto;display:block}
-  #print h2{font-size:15pt;margin:16pt 0 6pt;border-bottom:1.5pt solid #0b4f6c;padding-bottom:3pt;break-after:avoid}
+  #print h2{font-size:15pt;margin:16pt 0 6pt;border-bottom:1.5pt solid #6C8E4E;padding-bottom:3pt;break-after:avoid}
   #print table{width:100%;border-collapse:collapse;font-size:10pt}
   #print td,#print th{border-bottom:.5pt solid #ccc;padding:4pt 5pt;vertical-align:top;text-align:left}
   #print th{font-size:9pt;color:#555}
@@ -124,7 +125,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
   .p-n{font-size:9.5pt;color:#333;white-space:pre-wrap}
   .p-legend{font-size:9pt;color:#444;display:flex;flex-wrap:wrap;gap:4pt 12pt}
   .p-legend i{display:inline-block;width:8pt;height:8pt;border-radius:50%;margin-right:3pt;vertical-align:middle}
-  .p-night{font-size:10pt;margin:2pt 0 6pt;color:#0b4f6c}
+  .p-night{font-size:10pt;margin:2pt 0 6pt;color:#6C8E4E}
 }
 </style>
 </head>
@@ -183,15 +184,15 @@ const ICONS={
   other:'M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6'
 };
 const TYPES={
-  sight:{n:'Bezienswaardigheid',c:'#e8553a'},
-  activity:{n:'Activiteit',c:'#0e8f8f'},
+  sight:{n:'Bezienswaardigheid',c:'#E07A9A'},
+  activity:{n:'Activiteit',c:'#6C8E4E'},
   food:{n:'Eten & drinken',c:'#d98a00'},
   route:{n:'Route / vervoer',c:'#7c3aed'},
   other:{n:'Overig',c:'#64748b'},
   hotel:{n:'Verblijf',c:'#2563eb'}
 };
 const MODES=['Auto','Trein','Bus','Vliegtuig','Boot / ferry','Te voet','Fiets','Taxi','Metro / tram'];
-const DAYCOL=['#e8553a','#2563eb','#0e8f8f','#7c3aed','#d98a00','#db2777','#4d7c0f','#0891b2','#9333ea','#b45309'];
+const DAYCOL=['#E07A9A','#6C8E4E','#2563eb','#d98a00','#7c3aed','#0891b2','#b4467a','#4d6b33','#c2410c','#64748b'];
 const ico=(t,c)=>`<span class="ico" style="--c:${c||TYPES[t].c}"><svg class="i" viewBox="0 0 24 24"><path d="${ICONS[t]}"/></svg></span>`;
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -398,7 +399,7 @@ function locBlock(p){return `
   <div id="pickWrap"></div>`}
 function mountLoc(state){
   const show=()=>{const p=state.place;$('#lc').innerHTML=p&&p.lat!=null?`<b>${esc(p.name||'Gekozen punt')}</b><br><span class="note">${p.addr?esc(p.addr)+'<br>':''}${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}</span>`:'<span class="note">Nog geen locatie. Zonder locatie verschijnt dit niet op de kaart.</span>';
-    if(pickMap&&p&&p.lat!=null){pickMap._pm?pickMap._pm.setLatLng([p.lat,p.lng]):pickMap._pm=L.marker([p.lat,p.lng],{icon:pinIcon('#e8553a','•')}).addTo(pickMap)}};
+    if(pickMap&&p&&p.lat!=null){pickMap._pm?pickMap._pm.setLatLng([p.lat,p.lng]):pickMap._pm=L.marker([p.lat,p.lng],{icon:pinIcon('#E07A9A','•')}).addTo(pickMap)}};
   const parse=q=>{let m=q.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)||q.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/)||q.match(/[?&](?:q|ll|query|daddr|destination)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/)||q.match(/^\s*(-?\d{1,2}\.\d+)\s*[,; ]\s*(-?\d{1,3}\.\d+)\s*$/);return m?[+m[1],+m[2]]:null};
   const search=async()=>{const q=$('#lq').value.trim();if(!q)return;const c=parse(q);
     if(c){state.place={name:state.place?.name||'',addr:'',lat:c[0],lng:c[1]};$('#lr').innerHTML='';show();return}
@@ -414,7 +415,7 @@ function mountLoc(state){
     pickMap=L.map('pickMap',{tap:false});tiles().addTo(pickMap);
     const p=state.place,all=points();
     if(p&&p.lat!=null)pickMap.setView([p.lat,p.lng],15);else if(all.length)pickMap.fitBounds(L.latLngBounds(all.map(a=>[a.lat,a.lng])).pad(.2));else pickMap.setView([48,8],4);
-    all.forEach(a=>L.circleMarker([a.lat,a.lng],{radius:5,color:'#0b4f6c',weight:2,fillOpacity:.5}).addTo(pickMap));
+    all.forEach(a=>L.circleMarker([a.lat,a.lng],{radius:5,color:'#6C8E4E',weight:2,fillOpacity:.5}).addTo(pickMap));
     pickMap.on('click',e=>{state.place={name:state.place?.name||'',addr:state.place?.addr||'',lat:+e.latlng.lat.toFixed(6),lng:+e.latlng.lng.toFixed(6)};show()});show()};
   show()}
 
@@ -550,8 +551,8 @@ function overviewSvg(){
   pts.filter(p=>p.kind==='stay').forEach(p=>g+=`<rect x="${X(p.lng)-8}" y="${Y(p.lat)-8}" width="16" height="16" rx="4" fill="#2563eb" stroke="#fff" stroke-width="2"/><text x="${X(p.lng)}" y="${Y(p.lat)+4}" font-size="10" font-weight="700" fill="#fff" text-anchor="middle">H</text>`);
   pts.filter(p=>p.kind==='item').forEach(p=>g+=`<circle cx="${X(p.lng)}" cy="${Y(p.lat)}" r="9" fill="${dayCol(p.d)}" stroke="#fff" stroke-width="2"/><text x="${X(p.lng)}" y="${Y(p.lat)+3.5}" font-size="10" font-weight="700" fill="#fff" text-anchor="middle">${p.n}</text>`);
   // town labels: stays names
-  pts.filter(p=>p.kind==='stay').forEach(p=>g+=`<text x="${X(p.lng)+12}" y="${Y(p.lat)-10}" font-size="11" fill="#0b4f6c">${esc((p.o.place?.name||p.o.name).split(',').slice(-1)[0].trim().slice(0,28))}</text>`);
-  return `<div class="p-map"><svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"><rect width="${W}" height="${H}" fill="#f6f3ee"/>${g}</svg></div>
+  pts.filter(p=>p.kind==='stay').forEach(p=>g+=`<text x="${X(p.lng)+12}" y="${Y(p.lat)-10}" font-size="11" fill="#4d6b33">${esc((p.o.place?.name||p.o.name).split(',').slice(-1)[0].trim().slice(0,28))}</text>`);
+  return `<div class="p-map"><svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"><rect width="${W}" height="${H}" fill="#F9F2EA"/>${g}</svg></div>
   <div class="p-legend">${days().filter(d=>pts.some(p=>p.d===d)).map(d=>`<span><i style="background:${dayCol(d)}"></i>${esc(dayLabel(d))}</span>`).join('')}<span><i style="background:#2563eb;border-radius:2pt"></i>Verblijf</span></div>`}
 function doPrint(){
   const t=T(),ds=days();
