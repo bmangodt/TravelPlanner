@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Reisplanner">
+<meta name="theme-color" content="#0b4f6c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Reisplanner</title>
+<style>/*LEAFLET_CSS*/</style>
+<style>
+/*
+VOICE: rustig, praktisch, een reisgenoot die je onderweg met één hand gebruikt
+IDEA: een reisdagboek / boarding pass: per dag een kaart met grote tijden
+PICTURE: de kaart met alle genummerde plaatsen en dagroutes is het hoofdbeeld
+COLOUR and TYPE: wit + diepzee-blauw #0b4f6c, zand #f3ece2, koraal #e8553a als accent; systeemletter (werkt offline)
+LAYOUT: iOS-achtig: bovenbalk, inhoud, tabbalk onderaan met safe-area
+*/
+:root{color-scheme:light dark;
+--bg:light-dark(#ffffff,#0e1418);--bg2:light-dark(#f3ece2,#172127);--card:light-dark(#ffffff,#1b262d);
+--ink:light-dark(#10202a,#eef3f5);--mute:light-dark(#5b6b74,#9fb0b8);--line:light-dark(#e3ddd3,#2a3840);
+--sea:light-dark(#0b4f6c,#5fb3d6);--seaInk:#ffffff;--coral:#e8553a;--ok:#2f8f5b}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow-x:clip}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3{margin:0;line-height:1.1;text-wrap:balance}
+.top{position:sticky;top:0;z-index:500;background:var(--sea);color:var(--seaInk);padding:calc(env(safe-area-inset-top) + 12px) max(16px,env(safe-area-inset-right)) 14px max(16px,env(safe-area-inset-left))}
+.top h1{font-size:24px;font-weight:700;letter-spacing:-.01em}
+.top .sub{font-size:14px;opacity:.85;margin-top:2px}
+main{padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+.view{display:none}.view.on{display:block}
+.pad{padding:16px max(16px,env(safe-area-inset-left))}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:600;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+.tabs button{border:0;background:none;padding:8px 0 6px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;color:var(--mute);min-height:56px;cursor:pointer}
+.tabs button.on{color:var(--sea)}
+svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+#homeMap{height:min(58vh,560px);background:var(--bg2)}
+#dayMap{height:220px;border-radius:14px;margin-top:12px;background:var(--bg2)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:12px 16px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:8px 14px;font-size:14px;min-height:40px;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip i{width:10px;height:10px;border-radius:50%;background:var(--c);display:inline-block}
+.sec{font-size:13px;color:var(--mute);margin:22px 0 8px;font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:10px}
+.row{display:flex;gap:12px;align-items:flex-start}
+.item{display:grid;grid-template-columns:58px 36px minmax(0,1fr);gap:10px;align-items:start;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:8px;cursor:pointer;width:100%;text-align:left}
+.time{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;line-height:1.2}
+.time small{display:block;font-size:12px;font-weight:500;color:var(--mute)}
+.ico{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--c) 16%,transparent);color:var(--c)}
+.ico svg.i{width:20px;height:20px}
+.it{font-weight:650;line-height:1.25}
+.meta{font-size:14px;color:var(--mute);margin-top:2px;overflow-wrap:anywhere}
+.night{display:flex;gap:10px;align-items:center;background:var(--bg2);border-radius:14px;padding:12px;margin:8px 0;cursor:pointer;border:0;width:100%;text-align:left}
+.btn{border:0;border-radius:12px;padding:12px 16px;min-height:46px;background:var(--sea);color:var(--seaInk);font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn.ghost{background:var(--bg2);color:var(--ink)}
+.btn.danger{background:color-mix(in srgb,var(--coral) 14%,transparent);color:var(--coral)}
+.btn.sm{min-height:38px;padding:8px 12px;font-size:14px}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.grow{flex:1}
+.empty{text-align:center;color:var(--mute);padding:28px 12px;border:1.5px dashed var(--line);border-radius:16px}
+.stat{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px}
+.stat div{background:var(--bg2);border-radius:14px;padding:10px 12px}
+.stat b{display:block;font-size:24px;font-variant-numeric:tabular-nums}
+.stat span{font-size:13px;color:var(--mute)}
+label{display:block;font-size:13px;font-weight:600;color:var(--mute);margin:12px 0 4px}
+input,select,textarea{width:100%;font-size:16px;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);min-height:46px}
+textarea{min-height:90px;resize:vertical}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--sea);outline-offset:1px}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.sheet{position:fixed;inset:0;z-index:1000;background:rgba(5,15,20,.45);display:none;align-items:flex-end;justify-content:center}
+.sheet.on{display:flex}
+.panel{background:var(--bg);width:100%;max-width:640px;max-height:92vh;overflow:auto;border-radius:20px 20px 0 0;padding:8px 16px calc(24px + env(safe-area-inset-bottom));animation:up .22s ease-out}
+@keyframes up{from{transform:translateY(40px);opacity:.4}}
+@media (prefers-reduced-motion:reduce){.panel{animation:none}}
+.phead{position:sticky;top:-8px;background:var(--bg);display:flex;align-items:center;gap:8px;padding:10px 0;z-index:2;border-bottom:1px solid var(--line);margin-bottom:6px}
+.phead h2{font-size:20px;flex:1}
+.x{border:0;background:var(--bg2);width:38px;height:38px;border-radius:50%;cursor:pointer;font-size:20px;line-height:1}
+.results button{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:none;padding:10px 4px;cursor:pointer;font-size:15px}
+.loc{background:var(--bg2);border-radius:12px;padding:10px 12px;margin-top:8px;font-size:14px}
+#pickMap{height:260px;border-radius:12px;margin-top:8px}
+.kv{display:grid;grid-template-columns:7.5em minmax(0,1fr);gap:6px 10px;font-size:15px;margin-top:10px}
+.kv dt{color:var(--mute)}.kv dd{margin:0;overflow-wrap:anywhere}
+.kv a{color:var(--sea)}
+.pin span{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--c);color:#fff;font-size:13px;font-weight:700;border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+.pin.h span{border-radius:8px}
+.leaflet-popup-content{margin:12px 14px;font:14px/1.4 -apple-system,system-ui,sans-serif}
+.leaflet-popup-content b{font-size:15px}
+.pop button{margin-top:8px;border:0;background:#0b4f6c;color:#fff;border-radius:8px;padding:7px 12px;font-weight:600;cursor:pointer}
+.bar{height:8px;background:var(--bg2);border-radius:99px;overflow:hidden;margin-top:10px}
+.bar i{display:block;height:100%;width:0;background:var(--sea);transition:width .2s}
+.note{font-size:14px;color:var(--mute)}
+.badge{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--bg2);color:var(--mute)}
+.ok{color:var(--ok)}
+.toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;z-index:2000;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
+.toast.on{opacity:1}
+#print{display:none}
+@media (min-width:900px){main{max-width:980px;margin:0 auto}}
+/* ---------- PRINT / PDF ---------- */
+@media print{
+  @page{size:A4;margin:14mm}
+  body{background:#fff;color:#111;font-size:11pt}
+  .top,main,.tabs,.sheet,.toast{display:none!important}
+  #print{display:block}
+  .p-cover h1{font-size:26pt;margin:0 0 4pt}
+  .p-cover .d{font-size:12pt;color:#444}
+  .p-map{margin:12pt 0;border:1px solid #ccc;border-radius:6pt}
+  .p-map svg{width:100%;height:auto;display:block}
+  #print h2{font-size:15pt;margin:16pt 0 6pt;border-bottom:1.5pt solid #0b4f6c;padding-bottom:3pt;break-after:avoid}
+  #print table{width:100%;border-collapse:collapse;font-size:10pt}
+  #print td,#print th{border-bottom:.5pt solid #ccc;padding:4pt 5pt;vertical-align:top;text-align:left}
+  #print th{font-size:9pt;color:#555}
+  #print tr{break-inside:avoid}
+  .p-day{break-inside:auto}
+  .p-day h2{break-before:auto}
+  .p-t{white-space:nowrap;font-weight:700;width:52pt}
+  .p-k{color:#555;font-size:9pt}
+  .p-n{font-size:9.5pt;color:#333;white-space:pre-wrap}
+  .p-legend{font-size:9pt;color:#444;display:flex;flex-wrap:wrap;gap:4pt 12pt}
+  .p-legend i{display:inline-block;width:8pt;height:8pt;border-radius:50%;margin-right:3pt;vertical-align:middle}
+  .p-night{font-size:10pt;margin:2pt 0 6pt;color:#0b4f6c}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1 id="tripName">Reisplanner</h1>
+  <div class="sub" id="tripDates"></div>
+</header>
+
+<main>
+  <section class="view on" id="v-map">
+    <div id="homeMap" role="region" aria-label="Kaart met alle plaatsen"></div>
+    <div class="chips" id="mapChips"></div>
+    <div class="pad" style="padding-top:0">
+      <div id="homeSummary"></div>
+    </div>
+  </section>
+
+  <section class="view" id="v-days">
+    <div class="chips" id="dayChips"></div>
+    <div class="pad" style="padding-top:4px" id="dayBody"></div>
+  </section>
+
+  <section class="view" id="v-stays">
+    <div class="pad" id="staysBody"></div>
+  </section>
+
+  <section class="view" id="v-more">
+    <div class="pad" id="moreBody"></div>
+  </section>
+</main>
+
+<nav class="tabs" aria-label="Navigatie">
+  <button data-tab="map" class="on"><svg class="i" viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg>Kaart</button>
+  <button data-tab="days"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h16v14H4zM4 10h16M8 3v4M16 3v4"/></svg>Dagen</button>
+  <button data-tab="stays"><svg class="i" viewBox="0 0 24 24"><path d="M3 18V8M3 14h18v4M21 18v-4a3 3 0 0 0-3-3h-7v3M7 12.5a1.5 1.5 0 1 0 0-.01"/></svg>Verblijven</button>
+  <button data-tab="more"><svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Meer</button>
+</nav>
+
+<div class="sheet" id="sheet" aria-modal="true" role="dialog"><div class="panel" id="panel"></div></div>
+<div class="toast" id="toast"></div>
+<input type="file" id="importFile" accept="application/json,.json" hidden>
+<div id="print"></div>
+
+<script>/*LEAFLET_JS*/</script>
+<script>
+{
+const $=s=>document.querySelector(s);
+const KEY='reisplanner.v1';
+const ICONS={
+  hotel:'M3 18V8M3 14h18v4M21 18v-4a3 3 0 0 0-3-3h-7v3M7 12.5a1.5 1.5 0 1 0 0-.01',
+  sight:'M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4l-5.3 3 1.2-6-4.5-4.1 6-.7z',
+  food:'M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 3c-2 1-3 3-3 6v3h3v9',
+  route:'M5 19a2 2 0 1 0 0-.01M19 5a2 2 0 1 0 0-.01M7 19h8a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h8',
+  activity:'M5 21V4M5 4h11l-2 4 2 4H5',
+  other:'M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6'
+};
+const TYPES={
+  sight:{n:'Bezienswaardigheid',c:'#e8553a'},
+  activity:{n:'Activiteit',c:'#0e8f8f'},
+  food:{n:'Eten & drinken',c:'#d98a00'},
+  route:{n:'Route / vervoer',c:'#7c3aed'},
+  other:{n:'Overig',c:'#64748b'},
+  hotel:{n:'Verblijf',c:'#2563eb'}
+};
+const MODES=['Auto','Trein','Bus','Vliegtuig','Boot / ferry','Te voet','Fiets','Taxi','Metro / tram'];
+const DAYCOL=['#e8553a','#2563eb','#0e8f8f','#7c3aed','#d98a00','#db2777','#4d7c0f','#0891b2','#9333ea','#b45309'];
+const ico=(t,c)=>`<span class="ico" style="--c:${c||TYPES[t].c}"><svg class="i" viewBox="0 0 24 24"><path d="${ICONS[t]}"/></svg></span>`;
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pd=s=>{const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)};
+const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const fmt=(s,o={weekday:'short',day:'numeric',month:'short'})=>s?pd(s).toLocaleDateString('nl-BE',o):'';
+const fmtLong=s=>fmt(s,{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+const toast=m=>{const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('on'),2200)};
+const linkify=u=>/^https?:\/\//i.test(u)?`<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u.replace(/^https?:\/\//,'').slice(0,48))}</a>`:esc(u);
+
+/* ---------- data ---------- */
+function sample(){
+  const id=uid(),D=['2027-04-10','2027-04-11','2027-04-12','2027-04-13','2027-04-14'];
+  const P=(name,lat,lng,addr='')=>({name,lat,lng,addr});
+  let o=0;const I=(date,type,title,time,place,x={})=>({id:uid(),date,type,title,time,end:'',place,from:'',to:'',mode:'',duration:'',notes:'',ref:'',link:'',cost:'',order:o++,...x});
+  return {id,name:'Andalusië',start:D[0],end:D[4],sample:true,
+    days:{[D[0]]:{title:'Aankomst in Sevilla',notes:''},[D[1]]:{title:'Sevilla',notes:''},[D[2]]:{title:'Naar Córdoba',notes:''},[D[3]]:{title:'Granada',notes:''},[D[4]]:{title:'Terug naar huis',notes:''}},
+    stays:[
+      {id:uid(),name:'Hotel in Santa Cruz, Sevilla',place:P('Barrio Santa Cruz, Sevilla',37.3858,-5.9886),checkin:D[0],checkout:D[2],time:'15:00',ref:'',phone:'',notes:'Ontbijt inbegrepen',cost:''},
+      {id:uid(),name:'Appartement bij de Mezquita',place:P('Judería, Córdoba',37.8797,-4.7818),checkin:D[2],checkout:D[3],time:'16:00',ref:'',phone:'',notes:'',cost:''},
+      {id:uid(),name:'Hotel in de Albaicín',place:P('Albaicín, Granada',37.1802,-3.5935),checkin:D[3],checkout:D[4],time:'14:00',ref:'',phone:'',notes:'',cost:''}
+    ],
+    items:[
+      I(D[0],'route','Vlucht naar Sevilla','10:15',P('Luchthaven Sevilla',37.418,-5.8931),{mode:'Vliegtuig',from:'Brussel',to:'Sevilla',duration:'2u 45m'}),
+      I(D[0],'food','Tapas in Santa Cruz','20:30',P('Barrio Santa Cruz',37.3853,-5.9895)),
+      I(D[1],'sight','Real Alcázar','09:30',P('Real Alcázar de Sevilla',37.3831,-5.9902),{notes:'Tickets vooraf online kopen.'}),
+      I(D[1],'sight','Kathedraal & Giralda','12:30',P('Catedral de Sevilla',37.3861,-5.9926)),
+      I(D[1],'sight','Plaza de España','17:00',P('Plaza de España',37.3772,-5.9869)),
+      I(D[2],'route','Rit Sevilla → Córdoba','10:00',null,{mode:'Auto',from:'Sevilla',to:'Córdoba',duration:'1u 45m'}),
+      I(D[2],'sight','Mezquita-Catedral','14:00',P('Mezquita de Córdoba',37.8789,-4.7794)),
+      I(D[2],'activity','Wandeling Romeinse brug','18:30',P('Puente Romano',37.8771,-4.7774)),
+      I(D[3],'route','Rit Córdoba → Granada','09:00',null,{mode:'Auto',from:'Córdoba',to:'Granada',duration:'2u 15m'}),
+      I(D[3],'sight','Alhambra','13:00',P('Alhambra',37.1761,-3.5881),{notes:'Tijdslot Nasrid-paleizen: zie ticket.'}),
+      I(D[3],'sight','Zonsondergang Mirador San Nicolás','19:45',P('Mirador de San Nicolás',37.1811,-3.5926)),
+      I(D[4],'route','Vlucht naar huis','16:40',P('Luchthaven Málaga',36.6749,-4.4991),{mode:'Vliegtuig',from:'Málaga',to:'Brussel'}),
+      I(null,'food','Churros bij een lokale bar','',null,{notes:'Idee, nog in te plannen.'})
+    ]};
+}
+function blankTrip(){const t=new Date(),e=new Date();e.setDate(t.getDate()+6);return {id:uid(),name:'Nieuwe reis',start:iso(t),end:iso(e),days:{},stays:[],items:[]}}
+let S;
+try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!S||!S.trips||!Object.keys(S.trips).length){const t=sample();S={v:1,current:t.id,trips:{[t.id]:t}}}
+if(!S.trips[S.current])S.current=Object.keys(S.trips)[0];
+const T=()=>S.trips[S.current];
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast('Opslaan mislukt: geheugen vol?')}}
+try{navigator.storage?.persist?.()}catch(e){}
+
+const days=()=>{const t=T(),out=[];if(!t.start||!t.end)return out;let d=pd(t.start);const e=pd(t.end);for(let i=0;d<=e&&i<120;i++){out.push(iso(d));d.setDate(d.getDate()+1)}return out};
+const dayIdx=d=>days().indexOf(d);
+const dayCol=d=>{const i=dayIdx(d);return i<0?'#64748b':DAYCOL[i%DAYCOL.length]};
+const itemsOf=d=>T().items.filter(i=>(i.date||null)===d).sort((a,b)=>a.order-b.order);
+const outside=()=>{const ds=new Set(days());return T().items.filter(i=>i.date&&!ds.has(i.date))};
+const stayFor=d=>T().stays.find(s=>s.checkin<=d&&d<s.checkout);
+const checkoutOn=d=>T().stays.filter(s=>s.checkout===d);
+const nights=s=>Math.max(0,Math.round((pd(s.checkout)-pd(s.checkin))/864e5));
+const dayLabel=d=>`Dag ${dayIdx(d)+1} · ${fmt(d)}`;
+
+/* ---------- state & tabs ---------- */
+let tab='map',curDay=null,filter='all';
+function setTab(t){tab=t;document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id==='v-'+t));render();window.scrollTo(0,0)}
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+
+function header(){const t=T();$('#tripName').textContent=t.name||'Reisplanner';const n=days().length;
+  $('#tripDates').textContent=t.start?`${fmt(t.start,{day:'numeric',month:'short'})} – ${fmt(t.end,{day:'numeric',month:'short',year:'numeric'})} · ${n} ${n===1?'dag':'dagen'}`:'';document.title=(t.name||'Reis')+' · Reisplanner'}
+
+function render(){header();if(tab==='map')renderMap();if(tab==='days')renderDays();if(tab==='stays')renderStays();if(tab==='more')renderMore()}
+
+/* ---------- maps ---------- */
+const TILE='https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const ATTR='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-bijdragers';
+const tiles=()=>L.tileLayer(TILE,{maxZoom:19,attribution:ATTR,crossOrigin:true});
+const pinIcon=(c,txt,h)=>L.divIcon({className:'pin'+(h?' h':''),html:`<span style="--c:${c}">${txt}</span>`,iconSize:[28,28],iconAnchor:[14,14],popupAnchor:[0,-12]});
+let homeMap,homeLayer,dayMap,dayLayer;
+function points(onlyDay){
+  const pts=[];const ds=onlyDay?[onlyDay]:days();
+  ds.forEach(d=>{let n=0;itemsOf(d).forEach(i=>{if(i.place&&i.place.lat!=null){n++;pts.push({kind:'item',o:i,d,n,lat:i.place.lat,lng:i.place.lng})}})});
+  T().stays.forEach(s=>{if(s.place&&s.place.lat!=null&&(!onlyDay||(s.checkin<=onlyDay&&onlyDay<=s.checkout)))pts.push({kind:'stay',o:s,lat:s.place.lat,lng:s.place.lng})});
+  return pts}
+function draw(map,layer,onlyDay){
+  layer.clearLayers();const pts=points(onlyDay);
+  const ds=onlyDay?[onlyDay]:days();
+  ds.forEach(d=>{const line=pts.filter(p=>p.kind==='item'&&p.d===d).map(p=>[p.lat,p.lng]);const st=stayFor(d);if(st&&st.place?.lat!=null)line.push([st.place.lat,st.place.lng]);if(line.length>1)L.polyline(line,{color:dayCol(d),weight:3,opacity:.75,dashArray:'6 6'}).addTo(layer)});
+  pts.forEach(p=>{
+    const isStay=p.kind==='stay';
+    const m=L.marker([p.lat,p.lng],{icon:pinIcon(isStay?TYPES.hotel.c:dayCol(p.d),isStay?'H':p.n,isStay),zIndexOffset:isStay?-100:0}).addTo(layer);
+    const sub=isStay?`Verblijf · ${fmt(p.o.checkin)} → ${fmt(p.o.checkout)}`:`${dayLabel(p.d)}${p.o.time?' · '+esc(p.o.time):''}<br>${TYPES[p.o.type].n}`;
+    m.bindPopup(`<div class="pop"><b>${esc(isStay?p.o.name:p.o.title)}</b><br>${sub}<br><button data-k="${p.kind}" data-id="${p.o.id}">Details</button></div>`);
+  });
+  if(pts.length){const b=L.latLngBounds(pts.map(p=>[p.lat,p.lng]));map.fitBounds(b.pad(.15),{maxZoom:15})}else map.setView([48,8],4);
+}
+function popupHook(map){map.on('popupopen',e=>{const b=e.popup.getElement().querySelector('button[data-id]');if(b)b.onclick=()=>{map.closePopup();b.dataset.k==='stay'?stayDetail(b.dataset.id):itemDetail(b.dataset.id)}})}
+
+function renderMap(){
+  if(!homeMap){homeMap=L.map('homeMap',{zoomControl:true,tap:false});tiles().addTo(homeMap);homeLayer=L.layerGroup().addTo(homeMap);popupHook(homeMap)}
+  const ds=days();
+  $('#mapChips').innerHTML=`<button class="chip ${filter==='all'?'on':''}" data-f="all">Alle plaatsen</button>`+ds.map(d=>`<button class="chip ${filter===d?'on':''}" data-f="${d}"><i style="--c:${dayCol(d)}"></i>${esc(dayLabel(d))}</button>`).join('');
+  $('#mapChips').querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{filter=b.dataset.f;renderMap()});
+  if(filter!=='all'&&!ds.includes(filter))filter='all';
+  setTimeout(()=>{homeMap.invalidateSize();draw(homeMap,homeLayer,filter==='all'?null:filter)},30);
+  const t=T(),today=iso(new Date());
+  const nItems=t.items.filter(i=>i.date).length,nPlaces=points().length;
+  let next='';
+  const upcoming=ds.find(d=>d>=today)||ds[0];
+  if(upcoming){const its=itemsOf(upcoming);const st=stayFor(upcoming);
+    next=`<div class="sec">${upcoming===today?'Vandaag':'Eerstvolgende dag'}</div>
+    <div class="card"><div class="row"><div class="grow"><h3 style="font-size:19px">${esc(t.days[upcoming]?.title||dayLabel(upcoming))}</h3><div class="meta">${esc(dayLabel(upcoming))} · ${its.length} ${its.length===1?'activiteit':'activiteiten'}</div></div>
+    <button class="btn sm ghost" data-go="${upcoming}">Open dag</button></div>
+    ${its.slice(0,4).map(i=>`<div class="meta" style="margin-top:6px"><b style="color:var(--ink)">${esc(i.time||'—')}</b> &nbsp;${esc(i.title)}</div>`).join('')}
+    ${st?`<div class="meta" style="margin-top:8px">Overnachting: ${esc(st.name)}</div>`:''}</div>`}
+  const cd=t.start>today?Math.round((pd(t.start)-pd(today))/864e5):null;
+  $('#homeSummary').innerHTML=`
+    ${t.sample?`<div class="card" style="background:var(--bg2);border:0"><b>Dit is een voorbeeldreis.</b><div class="note">Bekijk hoe alles werkt en start dan je eigen reis via <b>Meer → Nieuwe reis</b>.</div></div>`:''}
+    <div class="stat"><div><b>${cd!=null?cd:ds.length}</b><span>${cd!=null?'dagen tot vertrek':'dagen'}</span></div><div><b>${nPlaces}</b><span>plaatsen op kaart</span></div><div><b>${t.stays.length}</b><span>verblijven</span></div></div>
+    ${next}
+    <div class="btns"><button class="btn grow" id="addFromHome">+ Plaats toevoegen</button><button class="btn ghost" id="printHome">PDF / afdrukken</button></div>
+    ${nItems===0&&!t.stays.length?`<div class="empty" style="margin-top:14px">Nog niets gepland. Voeg plaatsen, routes en verblijven toe; ze verschijnen hier op de kaart.</div>`:''}`;
+  $('#homeSummary').querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{curDay=b.dataset.go;setTab('days')});
+  $('#addFromHome').onclick=()=>itemForm(null,ds.includes(today)?today:(ds[0]||null));
+  $('#printHome').onclick=doPrint;
+}
+
+/* ---------- days ---------- */
+function renderDays(){
+  const ds=days(),t=T();
+  if(curDay!=='ideas'&&!ds.includes(curDay)){const today=iso(new Date());curDay=ds.includes(today)?today:(ds[0]||'ideas')}
+  const ideas=t.items.filter(i=>!i.date).length+outside().length;
+  $('#dayChips').innerHTML=ds.map(d=>`<button class="chip ${curDay===d?'on':''}" data-d="${d}"><i style="--c:${dayCol(d)}"></i>${esc(dayLabel(d))}</button>`).join('')+`<button class="chip ${curDay==='ideas'?'on':''}" data-d="ideas">Ideeën${ideas?` (${ideas})`:''}</button>`;
+  $('#dayChips').querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{curDay=b.dataset.d;renderDays()});
+  const on=$('#dayChips .chip.on');if(on)on.scrollIntoView({inline:'center',block:'nearest'});
+  const body=$('#dayBody');
+  if(curDay==='ideas'){
+    const list=[...t.items.filter(i=>!i.date).sort((a,b)=>a.order-b.order),...outside()];
+    body.innerHTML=`<h2 style="font-size:26px;margin-top:4px">Ideeën</h2><div class="note">Plaatsen en activiteiten die nog geen dag hebben. Open er één en kies “Verplaats naar dag”.</div>
+    <div style="margin-top:12px">${list.map(cardHtml).join('')||'<div class="empty">Nog geen ideeën.</div>'}</div>
+    <div class="btns"><button class="btn grow" id="addItem">+ Idee toevoegen</button></div>`;
+    bindCards(body);$('#addItem').onclick=()=>itemForm(null,null);return}
+  const d=curDay,info=t.days[d]||{},its=itemsOf(d),st=stayFor(d),outs=checkoutOn(d);
+  body.innerHTML=`
+    <div class="row" style="align-items:center;margin-top:4px"><div class="grow"><div class="note">${esc(fmtLong(d))}</div><h2 style="font-size:26px;margin-top:2px">${esc(info.title||'Dag '+(dayIdx(d)+1))}</h2></div><button class="btn sm ghost" id="editDay">Dag bewerken</button></div>
+    ${info.notes?`<div class="card" style="margin-top:10px;white-space:pre-wrap">${esc(info.notes)}</div>`:''}
+    ${outs.map(s=>`<button class="night" data-stay="${s.id}">${ico('hotel')}<div><div class="it">Uitchecken: ${esc(s.name)}</div><div class="meta">${esc(s.place?.name||'')}</div></div></button>`).join('')}
+    <div style="margin-top:10px">${its.map(cardHtml).join('')||'<div class="empty">Nog niets gepland voor deze dag.</div>'}</div>
+    ${st?`<button class="night" data-stay="${st.id}">${ico('hotel')}<div><div class="it">Overnachting: ${esc(st.name)}</div><div class="meta">${esc(st.place?.name||'')}${st.time?' · inchecken vanaf '+esc(st.time):''}</div></div></button>`:`<div class="note" style="margin:8px 2px">Geen verblijf voor deze nacht.</div>`}
+    <div class="btns"><button class="btn grow" id="addItem">+ Toevoegen</button><button class="btn ghost" id="sortTime">Sorteer op tijd</button></div>
+    <div id="dayMap"></div>`;
+  bindCards(body);
+  body.querySelectorAll('[data-stay]').forEach(b=>b.onclick=()=>stayDetail(b.dataset.stay));
+  $('#addItem').onclick=()=>itemForm(null,d);
+  $('#editDay').onclick=()=>dayForm(d);
+  $('#sortTime').onclick=()=>{const l=itemsOf(d);const timed=l.filter(i=>i.time).sort((a,b)=>a.time.localeCompare(b.time));const untimed=l.filter(i=>!i.time);[...timed,...untimed].forEach((i,k)=>i.order=k);save();renderDays();toast('Gesorteerd op tijd')};
+  if(dayMap){dayMap.remove();dayMap=null}
+  if(points(d).length){dayMap=L.map('dayMap',{zoomControl:false,tap:false});tiles().addTo(dayMap);dayLayer=L.layerGroup().addTo(dayMap);popupHook(dayMap);setTimeout(()=>{dayMap.invalidateSize();draw(dayMap,dayLayer,d)},30)}else $('#dayMap').remove();
+}
+function cardHtml(i){
+  const ty=TYPES[i.type]||TYPES.other;
+  const extra=[];
+  if(i.type==='route'&&(i.from||i.to))extra.push(`${esc(i.from||'?')} → ${esc(i.to||'?')}`);
+  if(i.mode)extra.push(esc(i.mode));if(i.duration)extra.push(esc(i.duration));
+  if(i.place?.name&&i.type!=='route')extra.push(esc(i.place.name));
+  if(i.ref)extra.push('Res. '+esc(i.ref));
+  const outsideNote=i.date&&!days().includes(i.date)?` <span class="badge">${esc(fmt(i.date))} · buiten reis</span>`:'';
+  return `<button class="item" data-item="${i.id}"><div class="time">${esc(i.time||'')}${i.end?`<small>tot ${esc(i.end)}</small>`:''}</div>${ico(i.type)}<div><div class="it">${esc(i.title||ty.n)}${outsideNote}</div><div class="meta">${extra.join(' · ')||ty.n}${i.place?.lat!=null?'':' · <i>geen locatie</i>'}</div></div></button>`}
+function bindCards(root){root.querySelectorAll('[data-item]').forEach(b=>b.onclick=()=>itemDetail(b.dataset.item))}
+
+/* ---------- sheet ---------- */
+let pickMap=null;
+function openSheet(title,html,mount){
+  $('#panel').innerHTML=`<div class="phead"><h2>${esc(title)}</h2><button class="x" id="sx" aria-label="Sluiten">×</button></div>${html}`;
+  $('#sheet').classList.add('on');document.body.style.overflow='hidden';$('#sx').onclick=closeSheet;$('#panel').scrollTop=0;mount&&mount()}
+function closeSheet(){if(pickMap){pickMap.remove();pickMap=null}$('#sheet').classList.remove('on');document.body.style.overflow=''}
+$('#sheet').addEventListener('click',e=>{if(e.target.id==='sheet')closeSheet()});
+
+function navLinks(p,label=''){if(!p||p.lat==null)return'';const ll=`${p.lat},${p.lng}`;
+  return `<div class="btns"><a class="btn sm" href="https://maps.apple.com/?daddr=${ll}&q=${encodeURIComponent(p.name||label)}" target="_blank" rel="noopener">Route in Apple Kaarten</a><a class="btn sm ghost" href="https://www.google.com/maps/dir/?api=1&destination=${ll}" target="_blank" rel="noopener">Google Maps</a></div>`}
+const kv=rows=>`<dl class="kv">${rows.filter(r=>r[1]).map(r=>`<dt>${r[0]}</dt><dd>${r[1]}</dd>`).join('')}</dl>`;
+
+function itemDetail(id){
+  const i=T().items.find(x=>x.id===id);if(!i)return;const ty=TYPES[i.type]||TYPES.other;
+  const ds=days();
+  openSheet(i.title||ty.n,`
+    <div class="row" style="align-items:center">${ico(i.type)}<div><div class="it">${ty.n}</div><div class="meta">${i.date?esc(ds.includes(i.date)?dayLabel(i.date):fmt(i.date)):'Idee – nog geen dag'}</div></div></div>
+    ${kv([['Tijd',esc([i.time,i.end].filter(Boolean).join(' – '))],['Van → naar',(i.from||i.to)?esc((i.from||'?')+' → '+(i.to||'?')):''],['Vervoer',esc(i.mode)],['Duur',esc(i.duration)],['Locatie',esc(i.place?.name||'')],['Adres',esc(i.place?.addr||'')],['Reservatie',esc(i.ref)],['Kost',esc(i.cost)],['Link',i.link?linkify(i.link):''],['Notities',i.notes?`<span style="white-space:pre-wrap">${esc(i.notes)}</span>`:'']])}
+    ${navLinks(i.place,i.title)}
+    ${i.type==='route'&&i.from&&i.to?`<div class="btns"><a class="btn sm ghost" href="https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(i.from)}&destination=${encodeURIComponent(i.to)}" target="_blank" rel="noopener">Route ${esc(i.from)} → ${esc(i.to)}</a></div>`:''}
+    <label for="mv">Verplaats naar dag</label>
+    <select id="mv"><option value="">Ideeën (geen dag)</option>${ds.map(d=>`<option value="${d}" ${i.date===d?'selected':''}>${esc(dayLabel(d))}</option>`).join('')}</select>
+    <div class="btns"><button class="btn grow" id="ed">Bewerken</button><button class="btn ghost" id="up" aria-label="Omhoog">↑</button><button class="btn ghost" id="dn" aria-label="Omlaag">↓</button></div>
+    <div class="btns"><button class="btn ghost grow" id="dup">Dupliceren</button><button class="btn danger grow" id="del">Verwijderen</button></div>`,()=>{
+    $('#ed').onclick=()=>itemForm(i);
+    $('#mv').onchange=e=>{i.date=e.target.value||null;i.order=Date.now();save();closeSheet();render();toast('Verplaatst')};
+    const mv=dir=>{const l=itemsOf(i.date||null);const k=l.indexOf(i),j=k+dir;if(j<0||j>=l.length)return;l.forEach((x,n)=>x.order=n);[l[k].order,l[j].order]=[l[j].order,l[k].order];save();render();toast(dir<0?'Omhoog':'Omlaag')};
+    $('#up').onclick=()=>mv(-1);$('#dn').onclick=()=>mv(1);
+    $('#dup').onclick=()=>{const c=structuredClone(i);c.id=uid();c.order=i.order+.5;c.title+=' (kopie)';T().items.push(c);save();closeSheet();render();toast('Gedupliceerd')};
+    $('#del').onclick=()=>{if(!confirm(`“${i.title}” verwijderen?`))return;T().items=T().items.filter(x=>x!==i);save();closeSheet();render();toast('Verwijderd')};
+  })}
+
+/* location picker (shared) */
+function locBlock(p){return `
+  <label for="lq">Locatie</label>
+  <div class="row"><input id="lq" placeholder="Zoek plaats, of plak coördinaten / Google Maps-link" autocomplete="off"><button type="button" class="btn sm" id="ls">Zoek</button></div>
+  <div class="results" id="lr"></div>
+  <div class="loc" id="lc"></div>
+  <div class="btns"><button type="button" class="btn sm ghost" id="lp">Kies op kaart</button><button type="button" class="btn sm ghost" id="lx">Locatie wissen</button></div>
+  <div id="pickWrap"></div>`}
+function mountLoc(state){
+  const show=()=>{const p=state.place;$('#lc').innerHTML=p&&p.lat!=null?`<b>${esc(p.name||'Gekozen punt')}</b><br><span class="note">${p.addr?esc(p.addr)+'<br>':''}${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}</span>`:'<span class="note">Nog geen locatie. Zonder locatie verschijnt dit niet op de kaart.</span>';
+    if(pickMap&&p&&p.lat!=null){pickMap._pm?pickMap._pm.setLatLng([p.lat,p.lng]):pickMap._pm=L.marker([p.lat,p.lng],{icon:pinIcon('#e8553a','•')}).addTo(pickMap)}};
+  const parse=q=>{let m=q.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)||q.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/)||q.match(/[?&](?:q|ll|query|daddr|destination)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/)||q.match(/^\s*(-?\d{1,2}\.\d+)\s*[,; ]\s*(-?\d{1,3}\.\d+)\s*$/);return m?[+m[1],+m[2]]:null};
+  const search=async()=>{const q=$('#lq').value.trim();if(!q)return;const c=parse(q);
+    if(c){state.place={name:state.place?.name||'',addr:'',lat:c[0],lng:c[1]};$('#lr').innerHTML='';show();return}
+    if(!navigator.onLine){$('#lr').innerHTML='<div class="note" style="padding:8px 0">Zoeken vraagt internet. Offline: plak coördinaten of kies op de kaart.</div>';return}
+    $('#lr').innerHTML='<div class="note" style="padding:8px 0">Zoeken…</div>';
+    try{const r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=nl&q='+encodeURIComponent(q));const js=await r.json();
+      $('#lr').innerHTML=js.length?js.map((x,k)=>`<button type="button" data-k="${k}"><b>${esc(x.name||x.display_name.split(',')[0])}</b><br><span class="note">${esc(x.display_name)}</span></button>`).join(''):'<div class="note" style="padding:8px 0">Niets gevonden. Probeer een andere schrijfwijze of voeg de stad toe.</div>';
+      $('#lr').querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{const x=js[+b.dataset.k];state.place={name:x.name||x.display_name.split(',')[0],addr:x.display_name,lat:+x.lat,lng:+x.lon};$('#lr').innerHTML='';show();state.onPick&&state.onPick(state.place)})
+    }catch(e){$('#lr').innerHTML='<div class="note" style="padding:8px 0">Zoeken mislukt. Controleer je verbinding of plak coördinaten.</div>'}};
+  $('#ls').onclick=search;$('#lq').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();search()}};
+  $('#lx').onclick=()=>{state.place=null;if(pickMap?._pm){pickMap._pm.remove();pickMap._pm=null}show()};
+  $('#lp').onclick=()=>{if(pickMap)return;$('#pickWrap').innerHTML='<div id="pickMap"></div><div class="note" style="margin-top:4px">Tik op de kaart om de locatie te kiezen.</div>';
+    pickMap=L.map('pickMap',{tap:false});tiles().addTo(pickMap);
+    const p=state.place,all=points();
+    if(p&&p.lat!=null)pickMap.setView([p.lat,p.lng],15);else if(all.length)pickMap.fitBounds(L.latLngBounds(all.map(a=>[a.lat,a.lng])).pad(.2));else pickMap.setView([48,8],4);
+    all.forEach(a=>L.circleMarker([a.lat,a.lng],{radius:5,color:'#0b4f6c',weight:2,fillOpacity:.5}).addTo(pickMap));
+    pickMap.on('click',e=>{state.place={name:state.place?.name||'',addr:state.place?.addr||'',lat:+e.latlng.lat.toFixed(6),lng:+e.latlng.lng.toFixed(6)};show()});show()};
+  show()}
+
+function itemForm(i,date){
+  const isNew=!i;const ds=days();
+  const x=i?structuredClone(i):{id:uid(),date:date??null,type:'sight',title:'',time:'',end:'',place:null,from:'',to:'',mode:'',duration:'',notes:'',ref:'',link:'',cost:''};
+  const st={place:x.place,onPick:p=>{if(!$('#ft').value)$('#ft').value=p.name}};
+  openSheet(isNew?'Toevoegen':'Bewerken',`
+  <form id="f">
+    <label for="fy">Soort</label><select id="fy">${Object.entries(TYPES).filter(([k])=>k!=='hotel').map(([k,v])=>`<option value="${k}" ${x.type===k?'selected':''}>${v.n}</option>`).join('')}</select>
+    <label for="ft">Titel</label><input id="ft" value="${esc(x.title)}" placeholder="bv. Sagrada Família" required>
+    <label for="fd">Dag</label><select id="fd"><option value="">Ideeën (nog geen dag)</option>${ds.map(d=>`<option value="${d}" ${x.date===d?'selected':''}>${esc(dayLabel(d))}</option>`).join('')}</select>
+    <div class="two"><div><label for="fs">Begin</label><input id="fs" type="time" value="${esc(x.time)}"></div><div><label for="fe">Einde</label><input id="fe" type="time" value="${esc(x.end)}"></div></div>
+    <div id="routeF">
+      <div class="two"><div><label for="ffr">Van</label><input id="ffr" value="${esc(x.from)}"></div><div><label for="fto">Naar</label><input id="fto" value="${esc(x.to)}"></div></div>
+      <div class="two"><div><label for="fm">Vervoer</label><select id="fm"><option value=""></option>${MODES.map(m=>`<option ${x.mode===m?'selected':''}>${m}</option>`).join('')}</select></div><div><label for="fdu">Duur / afstand</label><input id="fdu" value="${esc(x.duration)}" placeholder="bv. 1u 30m · 120 km"></div></div>
+    </div>
+    ${locBlock(x.place)}
+    <label for="fr">Reservatie / ticketnummer</label><input id="fr" value="${esc(x.ref)}">
+    <div class="two"><div><label for="fc">Kost</label><input id="fc" value="${esc(x.cost)}" placeholder="bv. € 18 p.p."></div><div><label for="fl">Link</label><input id="fl" type="url" value="${esc(x.link)}" placeholder="https://"></div></div>
+    <label for="fn">Notities</label><textarea id="fn">${esc(x.notes)}</textarea>
+    <div class="btns"><button class="btn grow" type="submit">Bewaren</button><button class="btn ghost" type="button" id="fcancel">Annuleren</button></div>
+  </form>`,()=>{
+    mountLoc(st);
+    const rt=()=>{$('#routeF').style.display=$('#fy').value==='route'?'':'none'};rt();$('#fy').onchange=rt;
+    $('#fcancel').onclick=closeSheet;
+    $('#f').onsubmit=e=>{e.preventDefault();
+      Object.assign(x,{type:$('#fy').value,title:$('#ft').value.trim(),date:$('#fd').value||null,time:$('#fs').value,end:$('#fe').value,from:$('#ffr').value.trim(),to:$('#fto').value.trim(),mode:$('#fm').value,duration:$('#fdu').value.trim(),place:st.place,ref:$('#fr').value.trim(),cost:$('#fc').value.trim(),link:$('#fl').value.trim(),notes:$('#fn').value});
+      if(x.type!=='route'){x.from=x.to='';}
+      const t=T();
+      if(isNew||x.date!==i.date){ // place new item by time
+        const l=itemsOf(x.date).filter(o=>o.id!==x.id);l.forEach((o,k)=>o.order=k);
+        let pos=l.length;if(x.time){const k=l.findIndex(o=>o.time&&o.time>x.time);if(k>=0)pos=k}
+        l.forEach(o=>{if(o.order>=pos)o.order++});x.order=pos}
+      if(isNew)t.items.push(x);else Object.assign(i,x);
+      save();closeSheet();if(x.date&&tab==='days')curDay=x.date;render();toast('Bewaard')};
+  })}
+
+function dayForm(d){const t=T(),info=t.days[d]||{};
+  openSheet(dayLabel(d),`<form id="f"><label for="dt">Titel van de dag</label><input id="dt" value="${esc(info.title||'')}" placeholder="bv. Strand & oude stad"><label for="dn">Notities</label><textarea id="dn" placeholder="Praktische info, weer, kledij…">${esc(info.notes||'')}</textarea><div class="btns"><button class="btn grow">Bewaren</button></div></form>`,()=>{
+    $('#f').onsubmit=e=>{e.preventDefault();t.days[d]={title:$('#dt').value.trim(),notes:$('#dn').value};save();closeSheet();render()}})}
+
+/* ---------- stays ---------- */
+function renderStays(){const t=T();const l=[...t.stays].sort((a,b)=>(a.checkin||'').localeCompare(b.checkin||''));
+  const ds=days(),missing=ds.slice(0,-1).filter(d=>!stayFor(d));
+  $('#staysBody').innerHTML=`<h2 style="font-size:26px">Verblijven</h2>
+  ${missing.length&&ds.length>1?`<div class="note" style="margin-top:4px">Nog geen verblijf voor: ${missing.map(d=>esc(fmt(d))).join(', ')}</div>`:ds.length>1?'<div class="note ok" style="margin-top:4px">Elke nacht heeft een verblijf.</div>':''}
+  <div style="margin-top:12px">${l.map(s=>`<button class="item" data-s="${s.id}" style="grid-template-columns:36px minmax(0,1fr)">${ico('hotel')}<div><div class="it">${esc(s.name)}</div><div class="meta">${esc(fmt(s.checkin))} → ${esc(fmt(s.checkout))} · ${nights(s)} ${nights(s)===1?'nacht':'nachten'}${s.place?.name?' · '+esc(s.place.name):''}${s.place?.lat!=null?'':' · <i>geen locatie</i>'}</div></div></button>`).join('')||'<div class="empty">Nog geen verblijven. Voeg je hotels, B&B’s of campings toe.</div>'}</div>
+  <div class="btns"><button class="btn grow" id="addStay">+ Verblijf toevoegen</button></div>`;
+  $('#staysBody').querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>stayDetail(b.dataset.s));
+  $('#addStay').onclick=()=>stayForm(null)}
+function stayDetail(id){const s=T().stays.find(x=>x.id===id);if(!s)return;
+  openSheet(s.name,`${kv([['Inchecken',esc(fmtLong(s.checkin))+(s.time?' · vanaf '+esc(s.time):'')],['Uitchecken',esc(fmtLong(s.checkout))+(s.outtime?' · tot '+esc(s.outtime):'')],['Nachten',String(nights(s))],['Locatie',esc(s.place?.name||'')],['Adres',esc(s.place?.addr||'')],['Telefoon',s.phone?`<a href="tel:${esc(s.phone.replace(/[^\d+]/g,''))}">${esc(s.phone)}</a>`:''],['Reservatie',esc(s.ref)],['Kost',esc(s.cost)],['Link',s.link?linkify(s.link):''],['Notities',s.notes?`<span style="white-space:pre-wrap">${esc(s.notes)}</span>`:'']])}
+  ${navLinks(s.place,s.name)}
+  <div class="btns"><button class="btn grow" id="ed">Bewerken</button><button class="btn danger" id="del">Verwijderen</button></div>`,()=>{
+    $('#ed').onclick=()=>stayForm(s);
+    $('#del').onclick=()=>{if(!confirm(`“${s.name}” verwijderen?`))return;T().stays=T().stays.filter(x=>x!==s);save();closeSheet();render();toast('Verwijderd')}})}
+function stayForm(s){const isNew=!s,ds=days();
+  const x=s?structuredClone(s):{id:uid(),name:'',place:null,checkin:ds[0]||'',checkout:ds[1]||ds[0]||'',time:'',outtime:'',ref:'',phone:'',notes:'',cost:'',link:''};
+  const st={place:x.place,onPick:p=>{if(!$('#sn').value)$('#sn').value=p.name}};
+  openSheet(isNew?'Verblijf toevoegen':'Verblijf bewerken',`<form id="f">
+    <label for="sn">Naam</label><input id="sn" value="${esc(x.name)}" required placeholder="bv. Hotel Bellavista">
+    <div class="two"><div><label for="si">Inchecken</label><input id="si" type="date" value="${esc(x.checkin)}" required></div><div><label for="so">Uitchecken</label><input id="so" type="date" value="${esc(x.checkout)}" required></div></div>
+    <div class="two"><div><label for="sti">Incheck vanaf</label><input id="sti" type="time" value="${esc(x.time)}"></div><div><label for="sto">Uitcheck tot</label><input id="sto" type="time" value="${esc(x.outtime||'')}"></div></div>
+    ${locBlock(x.place)}
+    <div class="two"><div><label for="sp">Telefoon</label><input id="sp" type="tel" value="${esc(x.phone)}"></div><div><label for="sr">Reservatie</label><input id="sr" value="${esc(x.ref)}"></div></div>
+    <div class="two"><div><label for="sc">Kost</label><input id="sc" value="${esc(x.cost)}"></div><div><label for="sl">Link</label><input id="sl" type="url" value="${esc(x.link||'')}" placeholder="https://"></div></div>
+    <label for="sno">Notities</label><textarea id="sno" placeholder="Parking, ontbijt, code sleutelkluis…">${esc(x.notes)}</textarea>
+    <div class="btns"><button class="btn grow">Bewaren</button><button class="btn ghost" type="button" id="fcancel">Annuleren</button></div></form>`,()=>{
+    mountLoc(st);$('#fcancel').onclick=closeSheet;
+    $('#f').onsubmit=e=>{e.preventDefault();const ci=$('#si').value,co=$('#so').value;if(co<=ci){toast('Uitchecken moet na inchecken liggen');return}
+      Object.assign(x,{name:$('#sn').value.trim(),checkin:ci,checkout:co,time:$('#sti').value,outtime:$('#sto').value,place:st.place,phone:$('#sp').value.trim(),ref:$('#sr').value.trim(),cost:$('#sc').value.trim(),link:$('#sl').value.trim(),notes:$('#sno').value});
+      if(isNew)T().stays.push(x);else Object.assign(s,x);save();closeSheet();render();toast('Bewaard')}})}
+
+/* ---------- more ---------- */
+function renderMore(){const t=T();const sw='serviceWorker' in navigator&&navigator.serviceWorker.controller;
+  $('#moreBody').innerHTML=`
+  <h2 style="font-size:26px">Reis</h2>
+  <form id="tf" class="card" style="margin-top:12px">
+    <label for="tn" style="margin-top:0">Naam van de reis</label><input id="tn" value="${esc(t.name)}">
+    <div class="two"><div><label for="ts">Vertrek</label><input id="ts" type="date" value="${esc(t.start)}"></div><div><label for="te">Terug</label><input id="te" type="date" value="${esc(t.end)}"></div></div>
+    <div class="btns"><button class="btn grow">Bewaren</button></div>
+    <div class="note" style="margin-top:8px">Verander je de data, dan blijven je plannen bewaard. Wat buiten de nieuwe periode valt, vind je terug bij <b>Ideeën</b>.</div>
+  </form>
+
+  <div class="sec">Mijn reizen</div>
+  <div class="card">${Object.values(S.trips).map(r=>`<div class="row" style="align-items:center;padding:6px 0"><div class="grow"><b>${esc(r.name)}</b>${r.id===S.current?' <span class="badge">actief</span>':''}<div class="meta">${esc(fmt(r.start))} – ${esc(fmt(r.end))}</div></div>${r.id!==S.current?`<button class="btn sm ghost" data-open="${r.id}">Openen</button>`:''}</div>`).join('')}
+    <div class="btns"><button class="btn sm" id="newTrip">+ Nieuwe reis</button><button class="btn sm ghost" id="dupTrip">Dupliceer deze reis</button><button class="btn sm danger" id="delTrip">Verwijder deze reis</button></div></div>
+
+  <div class="sec">PDF</div>
+  <div class="card"><div class="note">Maakt een nette printversie met overzichtskaart, verblijven en het programma per dag.</div>
+    <div class="btns"><button class="btn grow" id="pdf">PDF / afdrukken</button></div>
+    <div class="note" style="margin-top:8px">Op iPhone: tik <b>PDF / afdrukken</b> → in het afdrukscherm op het deel-icoon → <b>Bewaar in Bestanden</b>. Of druk meteen af via AirPrint.</div></div>
+
+  <div class="sec">Offline gebruik</div>
+  <div class="card">
+    <div>${sw?'<b class="ok">✓ De app werkt offline.</b>':'<b>De app is nog niet offline beschikbaar.</b>'}</div>
+    <div class="note">${sw?'Je gegevens staan op dit toestel. Kaartgebieden die je met internet bekeken hebt, blijven zichtbaar zonder internet.':'Open de app één keer via de gehoste link (met internet) en zet hem op je beginscherm.'}</div>
+    <div class="sec" style="margin-top:14px">Kaart klaarzetten voor onderweg</div>
+    <div class="note">Elk stukje kaart dat je bekijkt, bewaart de app automatisch. Open dus thuis op wifi elke dag in <b>Dagen</b> en zoom op de kaart even in en uit rond je hotels en bezienswaardigheden. Zonder internet zie je je genummerde plaatsen en routes altijd, ook op stukken kaart die je niet bekeken hebt (dan op een lege achtergrond).</div>
+    <div class="note" style="margin-top:10px">Tip: download in Apple Kaarten ook een offline kaart van je bestemming (Kaarten → je profiel → Offline kaarten). Dan werken de knoppen “Route in Apple Kaarten” ook zonder internet.</div>
+  </div>
+
+  <div class="sec">Back-up</div>
+  <div class="card"><div class="note">Je reis staat alleen op dit toestel. Maak een back-up (bv. naar Bestanden of iCloud Drive) zodat je niets verliest, of om de reis naar een ander toestel te zetten.</div>
+    <div class="btns"><button class="btn grow" id="exp">Back-up maken</button><button class="btn ghost grow" id="imp">Back-up terugzetten</button></div></div>
+  <div class="note" style="margin:18px 2px">Kaartgegevens © OpenStreetMap-bijdragers. Plaatsen zoeken via Nominatim (OpenStreetMap).</div>`;
+  $('#tf').onsubmit=e=>{e.preventDefault();const s=$('#ts').value,en=$('#te').value;if(!s||!en||en<s){toast('Controleer de data');return}t.name=$('#tn').value.trim()||'Mijn reis';t.start=s;t.end=en;delete t.sample;save();render();toast('Reis bewaard')};
+  $('#moreBody').querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{S.current=b.dataset.open;save();curDay=null;filter='all';render();toast('Reis geopend')});
+  $('#newTrip').onclick=()=>{const n=blankTrip();S.trips[n.id]=n;S.current=n.id;save();curDay=null;filter='all';render();toast('Nieuwe reis aangemaakt – geef ze een naam en data');$('#tn').focus()};
+  $('#dupTrip').onclick=()=>{const c=structuredClone(t);c.id=uid();c.name+=' (kopie)';delete c.sample;S.trips[c.id]=c;S.current=c.id;save();render();toast('Reis gedupliceerd')};
+  $('#delTrip').onclick=()=>{if(!confirm(`Reis “${t.name}” definitief verwijderen? Maak eventueel eerst een back-up.`))return;delete S.trips[t.id];if(!Object.keys(S.trips).length){const n=blankTrip();S.trips[n.id]=n}S.current=Object.keys(S.trips)[0];save();curDay=null;filter='all';render();toast('Reis verwijderd')};
+  $('#pdf').onclick=doPrint;$('#exp').onclick=exportData;$('#imp').onclick=()=>$('#importFile').click()}
+
+/* ---------- backup ---------- */
+async function exportData(){const t=T();const name=`reis-${(t.name||'backup').toLowerCase().replace(/[^a-z0-9]+/g,'-')}-${iso(new Date())}.json`;
+  const blob=new Blob([JSON.stringify({app:'reisplanner',v:1,exported:new Date().toISOString(),trips:S.trips,current:S.current},null,1)],{type:'application/json'});
+  try{const f=new File([blob],name,{type:'application/json'});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return}}catch(e){if(e.name==='AbortError')return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);toast('Back-up gedownload')}
+$('#importFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{const d=JSON.parse(await f.text());if(!d.trips)throw 0;const n=Object.keys(d.trips).length;
+    if(!confirm(`${n} ${n===1?'reis':'reizen'} terugzetten? Reizen met dezelfde naam-ID worden overschreven, andere blijven behouden.`))return;
+    Object.assign(S.trips,d.trips);S.current=d.current&&S.trips[d.current]?d.current:Object.keys(d.trips)[0];save();curDay=null;filter='all';render();toast('Back-up teruggezet')}catch(err){toast('Dit is geen geldig back-upbestand')}};
+
+/* ---------- print ---------- */
+function overviewSvg(){
+  const pts=points();if(!pts.length)return'';
+  const W=760,H=420,P=34;const merc=lat=>Math.log(Math.tan(Math.PI/4+lat*Math.PI/360));
+  const xs=pts.map(p=>p.lng),ys=pts.map(p=>merc(p.lat));let x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+  let dx=Math.max(x1-x0,.01)*Math.PI/180,dy=Math.max(y1-y0,.01*Math.PI/180);const sc=Math.min((W-2*P)/dx,(H-2*P)/dy);
+  const cx=(x0+x1)/2,cy=(y0+y1)/2;const X=l=>W/2+(l-cx)*Math.PI/180*sc,Y=la=>H/2-(merc(la)-cy)*sc;
+  let g='';days().forEach(d=>{const l=pts.filter(p=>p.kind==='item'&&p.d===d);const st=stayFor(d);const ln=l.map(p=>[X(p.lng),Y(p.lat)]);if(st?.place?.lat!=null)ln.push([X(st.place.lng),Y(st.place.lat)]);if(ln.length>1)g+=`<polyline points="${ln.map(a=>a.map(v=>v.toFixed(1)).join(',')).join(' ')}" fill="none" stroke="${dayCol(d)}" stroke-width="2" stroke-dasharray="5 4" opacity=".8"/>`});
+  pts.filter(p=>p.kind==='stay').forEach(p=>g+=`<rect x="${X(p.lng)-8}" y="${Y(p.lat)-8}" width="16" height="16" rx="4" fill="#2563eb" stroke="#fff" stroke-width="2"/><text x="${X(p.lng)}" y="${Y(p.lat)+4}" font-size="10" font-weight="700" fill="#fff" text-anchor="middle">H</text>`);
+  pts.filter(p=>p.kind==='item').forEach(p=>g+=`<circle cx="${X(p.lng)}" cy="${Y(p.lat)}" r="9" fill="${dayCol(p.d)}" stroke="#fff" stroke-width="2"/><text x="${X(p.lng)}" y="${Y(p.lat)+3.5}" font-size="10" font-weight="700" fill="#fff" text-anchor="middle">${p.n}</text>`);
+  // town labels: stays names
+  pts.filter(p=>p.kind==='stay').forEach(p=>g+=`<text x="${X(p.lng)+12}" y="${Y(p.lat)-10}" font-size="11" fill="#0b4f6c">${esc((p.o.place?.name||p.o.name).split(',').slice(-1)[0].trim().slice(0,28))}</text>`);
+  return `<div class="p-map"><svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"><rect width="${W}" height="${H}" fill="#f6f3ee"/>${g}</svg></div>
+  <div class="p-legend">${days().filter(d=>pts.some(p=>p.d===d)).map(d=>`<span><i style="background:${dayCol(d)}"></i>${esc(dayLabel(d))}</span>`).join('')}<span><i style="background:#2563eb;border-radius:2pt"></i>Verblijf</span></div>`}
+function doPrint(){
+  const t=T(),ds=days();
+  const stays=[...t.stays].sort((a,b)=>a.checkin.localeCompare(b.checkin));
+  const row=i=>{const bits=[];if(i.type==='route'&&(i.from||i.to))bits.push(esc((i.from||'?')+' → '+(i.to||'?')));if(i.mode)bits.push(esc(i.mode));if(i.duration)bits.push(esc(i.duration));
+    return `<tr><td class="p-t">${esc(i.time||'')}${i.end?'<br><span class="p-k">tot '+esc(i.end)+'</span>':''}</td><td><b>${esc(i.title)}</b> <span class="p-k">· ${TYPES[i.type].n}</span>${bits.length?'<br>'+bits.join(' · '):''}${i.place?.name?`<br><span class="p-k">${esc(i.place.name)}${i.place.addr&&i.place.addr!==i.place.name?' – '+esc(i.place.addr):''}</span>`:''}${i.notes?`<div class="p-n">${esc(i.notes)}</div>`:''}</td><td class="p-k">${i.ref?'Res. '+esc(i.ref)+'<br>':''}${esc(i.cost)}</td></tr>`};
+  const ideas=t.items.filter(i=>!i.date);
+  $('#print').innerHTML=`<div class="p-cover"><h1>${esc(t.name)}</h1><div class="d">${esc(fmtLong(t.start))} – ${esc(fmtLong(t.end))} · ${ds.length} dagen</div></div>
+  ${overviewSvg()}
+  ${stays.length?`<h2>Verblijven</h2><table><tr><th>Data</th><th>Verblijf</th><th>Info</th></tr>${stays.map(s=>`<tr><td class="p-t">${esc(fmt(s.checkin))} →<br>${esc(fmt(s.checkout))}</td><td><b>${esc(s.name)}</b><br><span class="p-k">${esc(s.place?.addr||s.place?.name||'')}</span>${s.notes?`<div class="p-n">${esc(s.notes)}</div>`:''}</td><td class="p-k">${s.time?'In vanaf '+esc(s.time)+'<br>':''}${s.phone?esc(s.phone)+'<br>':''}${s.ref?'Res. '+esc(s.ref):''}</td></tr>`).join('')}</table>`:''}
+  ${ds.map(d=>{const info=t.days[d]||{},its=itemsOf(d),st=stayFor(d);return `<div class="p-day"><h2>${esc(dayLabel(d))}${info.title?' – '+esc(info.title):''}</h2>${info.notes?`<div class="p-n">${esc(info.notes)}</div>`:''}${its.length?`<table>${its.map(row).join('')}</table>`:'<div class="p-k">Vrije dag</div>'}${st?`<div class="p-night">Overnachting: <b>${esc(st.name)}</b>${st.place?.name?' – '+esc(st.place.name):''}</div>`:''}</div>`}).join('')}
+  ${ideas.length?`<h2>Ideeën</h2><table>${ideas.map(row).join('')}</table>`:''}`;
+  setTimeout(()=>window.print(),60)}
+
+window.addEventListener('online',()=>tab==='more'&&renderMore());
+render();
+if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(()=>{if(tab==='more')renderMore()}).catch(()=>{});
+}
+</script>
+</body>
+</html>
