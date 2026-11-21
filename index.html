@@ -847,11 +847,13 @@ const ICONS={
   food:'M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 3c-2 1-3 3-3 6v3h3v9',
   route:'M5 19a2 2 0 1 0 0-.01M19 5a2 2 0 1 0 0-.01M7 19h8a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h8',
   activity:'M5 21V4M5 4h11l-2 4 2 4H5',
+  hike:'M3 20l6-10 4 6 3-4 5 8zM9 10l1.5 2.5',
   other:'M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6'
 };
 const TYPES={
   sight:{n:'Bezienswaardigheid',c:'#E07A9A'},
   activity:{n:'Activiteit',c:'#6C8E4E'},
+  hike:{n:'Wandeling',c:'#4d6b33'},
   food:{n:'Eten & drinken',c:'#d98a00'},
   route:{n:'Route / vervoer',c:'#7c3aed'},
   other:{n:'Overig',c:'#64748b'},
@@ -935,19 +937,22 @@ let homeMap,homeLayer,dayMap,dayLayer;
 function points(onlyDay){
   const pts=[];const ds=onlyDay?[onlyDay]:days();
   ds.forEach(d=>{let n=0;itemsOf(d).forEach(i=>{if(i.place&&i.place.lat!=null){n++;pts.push({kind:'item',o:i,d,n,lat:i.place.lat,lng:i.place.lng})}})});
-  T().stays.forEach(s=>{if(s.place&&s.place.lat!=null&&(!onlyDay||(s.checkin<=onlyDay&&onlyDay<=s.checkout)))pts.push({kind:'stay',o:s,lat:s.place.lat,lng:s.place.lng})});
+  T().stays.forEach(s=>{if(s.place&&s.place.lat!=null&&(!onlyDay||(s.checkin<=onlyDay&&onlyDay<s.checkout)))pts.push({kind:'stay',o:s,lat:s.place.lat,lng:s.place.lng})});
   return pts}
 function draw(map,layer,onlyDay){
   layer.clearLayers();const pts=points(onlyDay);
   const ds=onlyDay?[onlyDay]:days();
   ds.forEach(d=>{const line=pts.filter(p=>p.kind==='item'&&p.d===d).map(p=>[p.lat,p.lng]);const st=stayFor(d);if(st&&st.place?.lat!=null)line.push([st.place.lat,st.place.lng]);if(line.length>1)L.polyline(line,{color:dayCol(d),weight:3,opacity:.75,dashArray:'6 6'}).addTo(layer)});
+  const tb=[];
+  ds.forEach(d=>itemsOf(d).forEach(i=>{if(i.track?.pts?.length>1){const pl=L.polyline(i.track.pts,{color:dayCol(d),weight:4.5,opacity:.9}).addTo(layer);pl.bindPopup(`<div class="pop"><b>${esc(i.title)}</b><br>${esc(dayLabel(d))} · ${i.track.km} km${i.track.up?' · '+i.track.up+' m stijgen':''}<br><button data-k="item" data-id="${i.id}">Details</button></div>`);i.track.pts.forEach((q,k)=>{if(k%10===0)tb.push(q)})}}));
   pts.forEach(p=>{
     const isStay=p.kind==='stay';
     const m=L.marker([p.lat,p.lng],{icon:pinIcon(isStay?TYPES.hotel.c:dayCol(p.d),isStay?'H':p.n,isStay),zIndexOffset:isStay?-100:0}).addTo(layer);
     const sub=isStay?`Verblijf · ${fmt(p.o.checkin)} → ${fmt(p.o.checkout)}`:`${dayLabel(p.d)}${p.o.time?' · '+esc(p.o.time):''}<br>${TYPES[p.o.type].n}`;
     m.bindPopup(`<div class="pop"><b>${esc(isStay?p.o.name:p.o.title)}</b><br>${sub}<br><button data-k="${p.kind}" data-id="${p.o.id}">Details</button></div>`);
   });
-  if(pts.length){const b=L.latLngBounds(pts.map(p=>[p.lat,p.lng]));map.fitBounds(b.pad(.15),{maxZoom:15})}else map.setView([48,8],4);
+  const all=[...pts.map(p=>[p.lat,p.lng]),...tb];
+  if(all.length){map.fitBounds(L.latLngBounds(all).pad(.15),{maxZoom:15})}else map.setView([48,8],4);
 }
 function popupHook(map){map.on('popupopen',e=>{const b=e.popup.getElement().querySelector('button[data-id]');if(b)b.onclick=()=>{map.closePopup();b.dataset.k==='stay'?stayDetail(b.dataset.id):itemDetail(b.dataset.id)}})}
 
@@ -1010,13 +1015,14 @@ function renderDays(){
   $('#editDay').onclick=()=>dayForm(d);
   $('#sortTime').onclick=()=>{const l=itemsOf(d);const timed=l.filter(i=>i.time).sort((a,b)=>a.time.localeCompare(b.time));const untimed=l.filter(i=>!i.time);[...timed,...untimed].forEach((i,k)=>i.order=k);save();renderDays();toast('Gesorteerd op tijd')};
   if(dayMap){dayMap.remove();dayMap=null}
-  if(points(d).length){dayMap=L.map('dayMap',{zoomControl:false,tap:false});tiles().addTo(dayMap);dayLayer=L.layerGroup().addTo(dayMap);popupHook(dayMap);setTimeout(()=>{dayMap.invalidateSize();draw(dayMap,dayLayer,d)},30)}else $('#dayMap').remove();
+  if(points(d).length||itemsOf(d).some(i=>i.track)){dayMap=L.map('dayMap',{zoomControl:false,tap:false});tiles().addTo(dayMap);dayLayer=L.layerGroup().addTo(dayMap);popupHook(dayMap);setTimeout(()=>{dayMap.invalidateSize();draw(dayMap,dayLayer,d)},30)}else $('#dayMap').remove();
 }
 function cardHtml(i){
   const ty=TYPES[i.type]||TYPES.other;
   const extra=[];
   if(i.type==='route'&&(i.from||i.to))extra.push(`${esc(i.from||'?')} → ${esc(i.to||'?')}`);
   if(i.mode)extra.push(esc(i.mode));if(i.duration)extra.push(esc(i.duration));
+  if(i.track)extra.push(`${i.track.km} km${i.track.up?' · ↑ '+i.track.up+' m':''}`);
   if(i.place?.name&&i.type!=='route')extra.push(esc(i.place.name));
   if(i.ref)extra.push('Res. '+esc(i.ref));
   const outsideNote=i.date&&!days().includes(i.date)?` <span class="badge">${esc(fmt(i.date))} · buiten reis</span>`:'';
@@ -1040,7 +1046,7 @@ function itemDetail(id){
   const ds=days();
   openSheet(i.title||ty.n,`
     <div class="row" style="align-items:center">${ico(i.type)}<div><div class="it">${ty.n}</div><div class="meta">${i.date?esc(ds.includes(i.date)?dayLabel(i.date):fmt(i.date)):'Idee – nog geen dag'}</div></div></div>
-    ${kv([['Tijd',esc([i.time,i.end].filter(Boolean).join(' – '))],['Van → naar',(i.from||i.to)?esc((i.from||'?')+' → '+(i.to||'?')):''],['Vervoer',esc(i.mode)],['Duur',esc(i.duration)],['Locatie',esc(i.place?.name||'')],['Adres',esc(i.place?.addr||'')],['Reservatie',esc(i.ref)],['Kost',esc(i.cost)],['Link',i.link?linkify(i.link):''],['Notities',i.notes?`<span style="white-space:pre-wrap">${esc(i.notes)}</span>`:'']])}
+    ${kv([['Tijd',esc([i.time,i.end].filter(Boolean).join(' – '))],['Van → naar',(i.from||i.to)?esc((i.from||'?')+' → '+(i.to||'?')):''],['Vervoer',esc(i.mode)],['Duur',esc(i.duration)],['Wandelroute',i.track?`${i.track.km} km${i.track.up?' · '+i.track.up+' m stijgen':''}${i.track.file?' · '+esc(i.track.file):''}`:''],['Locatie',esc(i.place?.name||'')],['Adres',esc(i.place?.addr||'')],['Reservatie',esc(i.ref)],['Kost',esc(i.cost)],['Link',i.link?linkify(i.link):''],['Notities',i.notes?`<span style="white-space:pre-wrap">${esc(i.notes)}</span>`:'']])}
     ${navLinks(i.place,i.title)}
     ${i.type==='route'&&i.from&&i.to?`<div class="btns"><a class="btn sm ghost" href="https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(i.from)}&destination=${encodeURIComponent(i.to)}" target="_blank" rel="noopener">Route ${esc(i.from)} → ${esc(i.to)}</a></div>`:''}
     <label for="mv">Verplaats naar dag</label>
@@ -1102,14 +1108,30 @@ function itemForm(i,date){
     ${locBlock(x.place)}
     <label for="fr">Reservatie / ticketnummer</label><input id="fr" value="${esc(x.ref)}">
     <div class="two"><div><label for="fc">Kost</label><input id="fc" value="${esc(x.cost)}" placeholder="bv. € 18 p.p."></div><div><label for="fl">Link</label><input id="fl" type="url" value="${esc(x.link)}" placeholder="https://"></div></div>
+    <div id="trkHint" class="loc" style="display:none"><b>AllTrails-wandeling op de kaart?</b><br><span class="note">Een link alleen is niet genoeg. Meld je op je computer aan op alltrails.com (gratis account), open de wandeling en kies <b>Export map file</b> (of ⋯ → <b>Download route</b>) → <b>GPX Track</b>. Voeg dat bestand hieronder toe.</span></div>
+    <label for="trkFile">Wandel- of fietsroute (GPX, KML of GeoJSON)</label>
+    <div id="trkInfo" class="note"></div>
+    <div class="btns" style="margin-top:6px"><label class="btn sm ghost" style="margin:0;color:var(--ink)">Routebestand kiezen<input type="file" id="trkFile" accept=".gpx,.kml,.geojson,.json" hidden></label><button type="button" class="btn sm ghost" id="trkDel">Route wissen</button></div>
     <label for="fn">Notities</label><textarea id="fn">${esc(x.notes)}</textarea>
     <div class="btns"><button class="btn grow" type="submit">Bewaren</button><button class="btn ghost" type="button" id="fcancel">Annuleren</button></div>
   </form>`,()=>{
     mountLoc(st);
-    const rt=()=>{$('#routeF').style.display=$('#fy').value==='route'?'':'none'};rt();$('#fy').onchange=rt;
+    let trk=x.track||null;
+    const showTrk=()=>{$('#trkInfo').innerHTML=trk?`<span class="ok">✓ Route geladen</span> · ${trk.km} km${trk.up?' · '+trk.up+' m stijgen':''}${trk.file?' · '+esc(trk.file):''}`:'Nog geen routebestand.';$('#trkDel').style.display=trk?'':'none'};
+    const hint=()=>{$('#trkHint').style.display=(!trk&&(/alltrails\./i.test($('#fl').value)||$('#fy').value==='hike'))?'':'none'};
+    showTrk();hint();$('#fl').oninput=hint;
+    $('#trkDel').onclick=()=>{trk=null;showTrk();hint()};
+    $('#trkFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+      try{trk=parseTrack(await f.text(),f.name);showTrk();hint();
+        if(!st.place&&trk.pts.length){const a=trk.pts[0];st.place={name:'Start '+($('#ft').value||'wandeling'),addr:'',lat:a[0],lng:a[1]};$('#lc').innerHTML=`<b>${esc(st.place.name)}</b><br><span class="note">${a[0].toFixed(5)}, ${a[1].toFixed(5)}</span>`}
+        if(!$('#ft').value&&trk.name)$('#ft').value=trk.name;
+        toast('Route ingelezen');
+      }catch(err){toast(err.message||'Kon het bestand niet lezen')}};
+    const rt=()=>{$('#routeF').style.display=$('#fy').value==='route'?'':'none';hint()};rt();$('#fy').onchange=rt;
     $('#fcancel').onclick=closeSheet;
     $('#f').onsubmit=e=>{e.preventDefault();
-      Object.assign(x,{type:$('#fy').value,title:$('#ft').value.trim(),date:$('#fd').value||null,time:$('#fs').value,end:$('#fe').value,from:$('#ffr').value.trim(),to:$('#fto').value.trim(),mode:$('#fm').value,duration:$('#fdu').value.trim(),place:st.place,ref:$('#fr').value.trim(),cost:$('#fc').value.trim(),link:$('#fl').value.trim(),notes:$('#fn').value});
+      Object.assign(x,{type:$('#fy').value,title:$('#ft').value.trim(),date:$('#fd').value||null,time:$('#fs').value,end:$('#fe').value,from:$('#ffr').value.trim(),to:$('#fto').value.trim(),mode:$('#fm').value,duration:$('#fdu').value.trim(),place:st.place,ref:$('#fr').value.trim(),cost:$('#fc').value.trim(),link:$('#fl').value.trim(),notes:$('#fn').value,track:trk});
+      if(!x.track)delete x.track;
       if(x.type!=='route'){x.from=x.to='';}
       const t=T();
       if(isNew||x.date!==i.date){ // place new item by time
@@ -1206,14 +1228,38 @@ $('#importFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';
     if(!confirm(`${n} ${n===1?'reis':'reizen'} terugzetten? Reizen met dezelfde naam-ID worden overschreven, andere blijven behouden.`))return;
     Object.assign(S.trips,d.trips);S.current=d.current&&S.trips[d.current]?d.current:Object.keys(d.trips)[0];save();curDay=null;filter='all';render();toast('Back-up teruggezet')}catch(err){toast('Dit is geen geldig back-upbestand')}};
 
+/* ---------- route files ---------- */
+function parseTrack(txt,file){
+  let raw=[],name='';const t=txt.trim();
+  if(t.startsWith('{')){const g=JSON.parse(t);const walk=o=>{if(!o)return;if(o.type==='FeatureCollection')o.features.forEach(walk);else if(o.type==='Feature'){name=name||o.properties?.name||'';walk(o.geometry)}else if(o.type==='LineString')raw.push(...o.coordinates.map(c=>[c[1],c[0],c[2]]));else if(o.type==='MultiLineString')o.coordinates.forEach(l=>raw.push(...l.map(c=>[c[1],c[0],c[2]])));else if(o.type==='GeometryCollection')o.geometries.forEach(walk)};walk(g)}
+  else{const doc=new DOMParser().parseFromString(t,'application/xml');if(doc.querySelector('parsererror'))throw new Error('Onbekend bestandsformaat');
+    name=(doc.querySelector('trk > name, rte > name, metadata > name, Document > name, Placemark > name')?.textContent||'').trim();
+    const pts=doc.querySelectorAll('trkpt');const use=pts.length?pts:doc.querySelectorAll('rtept');
+    if(use.length)use.forEach(n=>raw.push([+n.getAttribute('lat'),+n.getAttribute('lon'),parseFloat(n.querySelector('ele')?.textContent)]));
+    else{doc.querySelectorAll('LineString coordinates').forEach(c=>c.textContent.trim().split(/\s+/).forEach(s=>{const[a,b,e]=s.split(',').map(Number);if(!isNaN(a)&&!isNaN(b))raw.push([b,a,e])}));
+      if(!raw.length)doc.getElementsByTagName('gx:coord').length&&[...doc.getElementsByTagName('gx:coord')].forEach(c=>{const[a,b,e]=c.textContent.trim().split(/\s+/).map(Number);raw.push([b,a,e])})}}
+  raw=raw.filter(p=>isFinite(p[0])&&isFinite(p[1])&&Math.abs(p[0])<=90);
+  if(raw.length<2)throw new Error('Geen route gevonden in dit bestand');
+  const R=6371,rad=Math.PI/180;let km=0,up=0,last=null;
+  for(let k=1;k<raw.length;k++){const[a,b]=[raw[k-1],raw[k]];const dl=(b[0]-a[0])*rad,dn=(b[1]-a[1])*rad;const h=Math.sin(dl/2)**2+Math.cos(a[0]*rad)*Math.cos(b[0]*rad)*Math.sin(dn/2)**2;km+=2*R*Math.asin(Math.sqrt(h))}
+  raw.forEach(p=>{if(isFinite(p[2])){if(last==null)last=p[2];else if(p[2]-last>=3){up+=p[2]-last;last=p[2]}else if(last-p[2]>=3)last=p[2]}});
+  // Douglas-Peucker vereenvoudiging, max ~1500 punten
+  const simp=(P,tol)=>{const keep=new Uint8Array(P.length);keep[0]=keep[P.length-1]=1;const st=[[0,P.length-1]];
+    while(st.length){const[i,j]=st.pop();let md=0,mi=-1;const[ax,ay]=[P[i][1],P[i][0]],[bx,by]=[P[j][1],P[j][0]];const dx=bx-ax,dy=by-ay,L2=dx*dx+dy*dy;
+      for(let k=i+1;k<j;k++){const px=P[k][1],py=P[k][0];let u=L2?((px-ax)*dx+(py-ay)*dy)/L2:0;u=Math.max(0,Math.min(1,u));const d=(px-ax-u*dx)**2+(py-ay-u*dy)**2;if(d>md){md=d;mi=k}}
+      if(mi>0&&md>tol*tol){keep[mi]=1;st.push([i,mi],[mi,j])}}
+    return P.filter((_,k)=>keep[k])};
+  let tol=.00003,out=simp(raw,tol);while(out.length>1500){tol*=1.6;out=simp(raw,tol)}
+  return {pts:out.map(p=>[+p[0].toFixed(5),+p[1].toFixed(5)]),km:+km.toFixed(1),up:Math.round(up),file:file||'',name}}
+
 /* ---------- print ---------- */
 function overviewSvg(){
-  const pts=points();if(!pts.length)return'';
+  const pts=points();const trs=[];days().forEach(d=>itemsOf(d).forEach(i=>{if(i.track?.pts?.length>1)trs.push({d,p:i.track.pts})}));if(!pts.length&&!trs.length)return'';
   const W=760,H=420,P=34;const merc=lat=>Math.log(Math.tan(Math.PI/4+lat*Math.PI/360));
-  const xs=pts.map(p=>p.lng),ys=pts.map(p=>merc(p.lat));let x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+  const ext=[...pts.map(p=>[p.lat,p.lng]),...trs.flatMap(t=>t.p)];const xs=ext.map(p=>p[1]),ys=ext.map(p=>merc(p[0]));let x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
   let dx=Math.max(x1-x0,.01)*Math.PI/180,dy=Math.max(y1-y0,.01*Math.PI/180);const sc=Math.min((W-2*P)/dx,(H-2*P)/dy);
   const cx=(x0+x1)/2,cy=(y0+y1)/2;const X=l=>W/2+(l-cx)*Math.PI/180*sc,Y=la=>H/2-(merc(la)-cy)*sc;
-  let g='';days().forEach(d=>{const l=pts.filter(p=>p.kind==='item'&&p.d===d);const st=stayFor(d);const ln=l.map(p=>[X(p.lng),Y(p.lat)]);if(st?.place?.lat!=null)ln.push([X(st.place.lng),Y(st.place.lat)]);if(ln.length>1)g+=`<polyline points="${ln.map(a=>a.map(v=>v.toFixed(1)).join(',')).join(' ')}" fill="none" stroke="${dayCol(d)}" stroke-width="2" stroke-dasharray="5 4" opacity=".8"/>`});
+  let g=trs.map(t=>`<polyline points="${t.p.map(q=>X(q[1]).toFixed(1)+','+Y(q[0]).toFixed(1)).join(' ')}" fill="none" stroke="${dayCol(t.d)}" stroke-width="2.5" stroke-linejoin="round"/>`).join('');days().forEach(d=>{const l=pts.filter(p=>p.kind==='item'&&p.d===d);const st=stayFor(d);const ln=l.map(p=>[X(p.lng),Y(p.lat)]);if(st?.place?.lat!=null)ln.push([X(st.place.lng),Y(st.place.lat)]);if(ln.length>1)g+=`<polyline points="${ln.map(a=>a.map(v=>v.toFixed(1)).join(',')).join(' ')}" fill="none" stroke="${dayCol(d)}" stroke-width="2" stroke-dasharray="5 4" opacity=".8"/>`});
   pts.filter(p=>p.kind==='stay').forEach(p=>g+=`<rect x="${X(p.lng)-8}" y="${Y(p.lat)-8}" width="16" height="16" rx="4" fill="#2563eb" stroke="#fff" stroke-width="2"/><text x="${X(p.lng)}" y="${Y(p.lat)+4}" font-size="10" font-weight="700" fill="#fff" text-anchor="middle">H</text>`);
   pts.filter(p=>p.kind==='item').forEach(p=>g+=`<circle cx="${X(p.lng)}" cy="${Y(p.lat)}" r="9" fill="${dayCol(p.d)}" stroke="#fff" stroke-width="2"/><text x="${X(p.lng)}" y="${Y(p.lat)+3.5}" font-size="10" font-weight="700" fill="#fff" text-anchor="middle">${p.n}</text>`);
   // town labels: stays names
@@ -1223,7 +1269,7 @@ function overviewSvg(){
 function doPrint(){
   const t=T(),ds=days();
   const stays=[...t.stays].sort((a,b)=>a.checkin.localeCompare(b.checkin));
-  const row=i=>{const bits=[];if(i.type==='route'&&(i.from||i.to))bits.push(esc((i.from||'?')+' → '+(i.to||'?')));if(i.mode)bits.push(esc(i.mode));if(i.duration)bits.push(esc(i.duration));
+  const row=i=>{const bits=[];if(i.type==='route'&&(i.from||i.to))bits.push(esc((i.from||'?')+' → '+(i.to||'?')));if(i.mode)bits.push(esc(i.mode));if(i.duration)bits.push(esc(i.duration));if(i.track)bits.push(i.track.km+' km'+(i.track.up?' · '+i.track.up+' m stijgen':''));
     return `<tr><td class="p-t">${esc(i.time||'')}${i.end?'<br><span class="p-k">tot '+esc(i.end)+'</span>':''}</td><td><b>${esc(i.title)}</b> <span class="p-k">· ${TYPES[i.type].n}</span>${bits.length?'<br>'+bits.join(' · '):''}${i.place?.name?`<br><span class="p-k">${esc(i.place.name)}${i.place.addr&&i.place.addr!==i.place.name?' – '+esc(i.place.addr):''}</span>`:''}${i.notes?`<div class="p-n">${esc(i.notes)}</div>`:''}</td><td class="p-k">${i.ref?'Res. '+esc(i.ref)+'<br>':''}${esc(i.cost)}</td></tr>`};
   const ideas=t.items.filter(i=>!i.date);
   $('#print').innerHTML=`<div class="p-cover"><h1>${esc(t.name)}</h1><div class="d">${esc(fmtLong(t.start))} – ${esc(fmtLong(t.end))} · ${ds.length} dagen</div></div>

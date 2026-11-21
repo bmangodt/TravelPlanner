@@ -1,5 +1,5 @@
 // Reisplanner service worker: app offline + kaarttegels cachen
-const V = 'reisplanner-app-v3';
+const V = 'reisplanner-app-v4';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './apple-touch-icon.png', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(V)

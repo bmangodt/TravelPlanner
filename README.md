@@ -27,6 +27,16 @@ Let op: de app op je beginscherm en de pagina in Safari hebben elk hun eigen ops
 - Download in **Apple Kaarten** een offline kaart van je bestemming, zodat navigeren ook zonder internet lukt.
 - Maak een **back-up** (Meer → Back-up maken → Bewaar in Bestanden/iCloud Drive).
 
+## Wandelingen van AllTrails op de kaart
+
+Een AllTrails-link alleen kan de app niet uitlezen. Download daarom het routebestand:
+
+1. Meld je op je computer aan op alltrails.com (een gratis account volstaat).
+2. Open de wandeling en kies **Export map file** (of ⋯ → **Download route**) → **GPX Track**.
+3. In de app: **+ Toevoegen** → soort **Wandeling** → **Routebestand kiezen** → kies het GPX-bestand. Plak de AllTrails-link gerust bij *Link*.
+
+De route verschijnt in de kleur van de dag op de dagkaart, op de kaart van de startpagina en in de PDF, met afstand en hoogtemeters. GPX-, KML- en GeoJSON-bestanden van andere apps (Komoot, Wikiloc, Strava, …) werken ook.
+
 ## 4. PDF maken
 
 Tik op **PDF / afdrukken**. Tik in het afdrukscherm op het deel-icoon en kies **Bewaar in Bestanden**, of druk meteen af via AirPrint. Op een computer kies je **Opslaan als PDF**.
